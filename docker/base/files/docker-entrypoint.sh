@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 
-exec java -jar /opt/imposter/lib/imposter.jar "$@"
+exec java $JVM_FLAGS -jar /opt/imposter/lib/imposter.jar "$@"
