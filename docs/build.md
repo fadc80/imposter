@@ -26,5 +26,5 @@ If you want to run tests:
 
 Build the Docker containers with:
 
-    cd docker
-    ./build.sh
+    cd scripts
+    ./docker-build.sh
