@@ -5,11 +5,11 @@ import com.gatehill.imposter.script.InternalResponseBehavior;
 import com.gatehill.imposter.script.impl.GroovyResponseBehaviourImpl;
 import groovy.lang.Binding;
 import groovy.lang.GroovyCodeSource;
-import groovy.lang.GroovyShell;
+import groovy.lang.GroovyClassLoader;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.codehaus.groovy.control.CompilerConfiguration;
-
+import org.codehaus.groovy.runtime.InvokerHelper;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
@@ -29,21 +29,29 @@ public class GroovyScriptServiceImpl implements ScriptService {
      */
     @Override
     public InternalResponseBehavior executeScript(ResourceConfig config, Map<String, Object> bindings) {
-        final Path scriptFile = Paths.get(config.getParentDir().getAbsolutePath(), config.getResponseConfig().getScriptFile());
-        LOGGER.trace("Executing script file: {}", scriptFile);
+        final String configFolder = config.getParentDir().getAbsolutePath();
+	final String fileName = config.getResponseConfig().getScriptFile();
+
+	final Path scriptFile = Paths.get(configFolder, fileName);
+        
+	LOGGER.trace("Executing script file: {}", scriptFile);
 
         // the script class will be a subclass of AbstractResponseBehaviour
         final CompilerConfiguration compilerConfig = new CompilerConfiguration();
         compilerConfig.setScriptBaseClass(GroovyResponseBehaviourImpl.class.getCanonicalName());
-        final GroovyShell groovyShell = new GroovyShell(convertBindings(bindings), compilerConfig);
+	compilerConfig.setClasspath(configFolder);
 
-        try {
-            final GroovyResponseBehaviourImpl script = (GroovyResponseBehaviourImpl) groovyShell.parse(
-                    new GroovyCodeSource(scriptFile.toFile(), compilerConfig.getSourceEncoding()));
+	final GroovyClassLoader groovyClassLoader = new GroovyClassLoader(
+            this.getClass().getClassLoader(), compilerConfig, true);
+        
+	try {
+            final GroovyResponseBehaviourImpl script = (GroovyResponseBehaviourImpl) InvokerHelper.createScript(
+                    groovyClassLoader.parseClass(new GroovyCodeSource(scriptFile.toFile(), 
+                            compilerConfig.getSourceEncoding())), convertBindings(bindings));
 
             script.run();
-            return script;
 
+            return script;
         } catch (Exception e) {
             throw new RuntimeException("Script execution terminated abnormally", e);
         }
